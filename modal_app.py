@@ -1,0 +1,125 @@
+"""Modal entrypoint for ViGoEmotions baseline training on an A100.
+
+Usage (local CLI, after data has been uploaded once via scripts/upload_data.py):
+
+    modal run modal_app.py::train \\
+        --config-path configs/visobert_baseline.yaml \\
+        --run-name visobert-baseline-v1
+
+Optional flags:
+    --use-wandb         enable W&B logging. Set WANDB_API_KEY locally and it
+                        will be forwarded to the Modal container.
+
+Volumes:
+    vigoemotions-data   /data                       (read-only intent, populated by scripts/upload_data.py)
+    vigoemotions-runs   /runs                       (TensorBoard logs + checkpoints + metrics.json)
+    hf-cache            /root/.cache/huggingface    (model weights cache between runs)
+"""
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+import modal
+
+APP_NAME = "vigoemotions-baseline"
+DATA_VOLUME_NAME = "vigoemotions-data"
+RUNS_VOLUME_NAME = "vigoemotions-runs"
+HF_CACHE_VOLUME_NAME = "hf-cache"
+
+ROOT = Path(__file__).parent
+
+image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .apt_install("git")
+    .pip_install_from_requirements(str(ROOT / "requirements.txt"))
+    .add_local_dir(str(ROOT / "src"), remote_path="/root/src", copy=True)
+    .add_local_dir(str(ROOT / "configs"), remote_path="/root/configs", copy=True)
+    .workdir("/root")
+)
+
+app = modal.App(APP_NAME, image=image)
+
+data_vol = modal.Volume.from_name(DATA_VOLUME_NAME, create_if_missing=True)
+runs_vol = modal.Volume.from_name(RUNS_VOLUME_NAME, create_if_missing=True)
+hf_cache_vol = modal.Volume.from_name(HF_CACHE_VOLUME_NAME, create_if_missing=True)
+
+
+_wandb_secret = modal.Secret.from_dict(
+    {
+        "WANDB_API_KEY": os.environ.get("WANDB_API_KEY", ""),
+        "WANDB_PROJECT": os.environ.get("WANDB_PROJECT", "vigoemotions"),
+    }
+)
+
+
+@app.function(
+    gpu="A100",
+    volumes={
+        "/data": data_vol,
+        "/runs": runs_vol,
+        "/root/.cache/huggingface": hf_cache_vol,
+    },
+    secrets=[_wandb_secret],
+    timeout=60 * 60 * 4,
+)
+def train_remote(config_path: str, run_name: str, use_wandb: bool = False) -> dict:
+    """Remote training entrypoint. Returns the summary dict written to metrics.json."""
+    os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
+    from src.train import run_training
+
+    summary = run_training(config_path=config_path, run_name=run_name, use_wandb=use_wandb)
+    runs_vol.commit()
+    return summary
+
+
+@app.local_entrypoint()
+def train(
+    config_path: str = "configs/visobert_baseline.yaml",
+    run_name: str = "visobert-baseline-v1",
+    use_wandb: bool = False,
+) -> None:
+    """Local CLI -> remote A100 training run."""
+    remote_config = config_path if config_path.startswith("/") else f"/root/{config_path}"
+
+    print(f"[modal_app] Submitting training run '{run_name}' (use_wandb={use_wandb})")
+    print(f"[modal_app] Config (remote): {remote_config}")
+
+    if use_wandb and not os.environ.get("WANDB_API_KEY"):
+        print("[modal_app] WARN: --use-wandb passed but WANDB_API_KEY not in local env; "
+              "W&B logging will be skipped inside the container.")
+
+    summary = train_remote.remote(
+        config_path=remote_config,
+        run_name=run_name,
+        use_wandb=use_wandb,
+    )
+
+    print("[modal_app] Run finished.")
+    print(
+        f"  best epoch        : {summary.get('best_epoch')}\n"
+        f"  best val macroF1  : {summary.get('best_val_macro_f1'):.4f}\n"
+        f"  test macroF1      : {summary['test']['macro_f1']:.4f}\n"
+        f"  test weightedF1   : {summary['test']['weighted_f1']:.4f}\n"
+        f"  test microF1      : {summary['test']['micro_f1']:.4f}\n"
+        f"  test hamming      : {summary['test']['hamming']:.4f}\n"
+        f"  artifacts         : Volume '{RUNS_VOLUME_NAME}' under /runs/{run_name}\n"
+    )
+
+
+@app.function(volumes={"/runs": runs_vol}, timeout=300)
+def list_runs() -> list[str]:
+    """List run directories on the runs volume."""
+    return sorted(os.listdir("/runs")) if os.path.isdir("/runs") else []
+
+
+@app.local_entrypoint()
+def runs() -> None:
+    """`modal run modal_app.py::runs` to list completed runs on the volume."""
+    items = list_runs.remote()
+    if not items:
+        print("(no runs yet)")
+        return
+    for item in items:
+        print(item)
