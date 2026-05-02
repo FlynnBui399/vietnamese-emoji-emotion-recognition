@@ -28,3 +28,13 @@ tb/
 
 # Datasets (often large / licensed)
 data/
+
+# Local secrets (HF token, W&B, etc.) — never commit
+.env
+.env.local
+.env.*.local
+secrets.local
+
+# Local docs / notes (project-specific)
+CONTEXT.md
+Kế Hoạch Nghiên Cứu Chi Tiết  Emoji-Aware Fine-Grained Emotion Recognition Cho Tiếng Việt.md

@@ -1,0 +1,46 @@
+# ViSoBERT multi-label baseline on ViGoEmotions (Scenario 1: keep raw emoji).
+# Target reproduction: Macro F1 ~ 61.50%, Weighted F1 ~ 63.26%.
+
+model_name: uitnlp/visobert
+num_labels: 28
+
+# Tokenization
+max_length: 200       # ← matches notebook's max_len=200
+use_fast_tokenizer: false  # ← notebook uses use_fast=False for ViSoBERT
+
+# Preprocessing
+apply_clean_text: true     # lowercase / pattern / dup-collapse / teencode / punct-spacing
+apply_pyvi: true           # pyvi.ViTokenizer.tokenize after clean_text, before BERT tokenize
+# patterns.json and teencode4.txt are required (see preprocess.load_resources).
+# emojis.json is optional (baseline Scenario 1 does not replace emoji with words).
+docs_dir: /root/docs
+
+# Optimization
+batch_size: 32        # ← 64 → 32 to match notebook DataLoader(batch_size=32)
+eval_batch_size: 32   # ← 80 → 32 to match notebook val/test DataLoader(batch_size=32)
+epochs: 12            # paper dùng 12
+learning_rate: 5.0e-5 # paper dùng 5e-5
+weight_decay: 0.01    # AdamW default; applied to ALL params (single group)
+warmup_ratio: 0.1     # ignored when warmup_epochs is set
+warmup_epochs: 1.0    # ← warmup_steps = len(train_loader) (≈ 1 epoch)
+dropout: 0.2          # paper dùng 0.2
+grad_clip: 1.0
+grad_accum: 1
+seed: 42
+
+# Loss
+use_pos_weight: true
+
+# Inference
+threshold: 0.5
+
+# Misc
+num_workers: 2
+log_every: 50
+# Mixed precision on CUDA (bf16/fp16). false matches the Colab notebook (fp32).
+use_amp: false
+
+
+# Paths inside the Modal container.
+data_dir: /data
+runs_dir: /runs

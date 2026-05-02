@@ -1,0 +1,35 @@
+# Same as visobert_baseline.yaml but full fp32 on GPU (no bf16/fp16 autocast).
+# Use for a fair comparison with the Colab notebook (T4 fp32). Expect slower training.
+
+model_name: uitnlp/visobert
+num_labels: 28
+
+max_length: 200
+use_fast_tokenizer: false
+
+apply_clean_text: true
+apply_pyvi: true
+docs_dir: /root/docs
+
+batch_size: 32
+eval_batch_size: 32
+epochs: 12
+learning_rate: 5.0e-5
+weight_decay: 0.01
+warmup_ratio: 0.1
+warmup_epochs: 1.0
+dropout: 0.2
+grad_clip: 1.0
+grad_accum: 1
+seed: 42
+
+use_pos_weight: true
+
+threshold: 0.5
+
+num_workers: 2
+log_every: 50
+use_amp: false
+
+data_dir: /data
+runs_dir: /runs

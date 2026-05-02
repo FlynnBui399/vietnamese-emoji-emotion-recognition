@@ -17,17 +17,18 @@ from tqdm import tqdm
 from transformers import get_linear_schedule_with_warmup
 
 from .config import TrainConfig
-from .data import build_dataloaders, build_tokenizer
+from .data import CleanTextFn, build_dataloaders, build_tokenizer
 from .losses import build_bce_loss
 from .metrics import EvalMetrics, compute_metrics
 from .model import ViSoBertMultiLabel
+from .preprocess import get_pyvi_segmenter, load_resources, make_clean_text
 from .utils import EMOTION_LABELS, NUM_LABELS, device_info, get_logger, set_seed
 
 LOGGER = get_logger(__name__)
 
 
-def _autocast_dtype() -> torch.dtype | None:
-    if not torch.cuda.is_available():
+def _autocast_dtype(use_amp: bool) -> torch.dtype | None:
+    if not use_amp or not torch.cuda.is_available():
         return None
     if torch.cuda.is_bf16_supported():
         return torch.bfloat16
@@ -115,13 +116,21 @@ def run_training(
     config_path: str,
     run_name: str,
     use_wandb: bool = False,
+    seed_override: int | None = None,
 ) -> dict[str, Any]:
     cfg = TrainConfig.from_yaml(config_path)
+    if seed_override is not None:
+        cfg.seed = int(seed_override)
     set_seed(cfg.seed)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    autocast_dtype = _autocast_dtype()
-    LOGGER.info("Device: %s | autocast: %s", device_info(), autocast_dtype)
+    autocast_dtype = _autocast_dtype(cfg.use_amp)
+    LOGGER.info(
+        "Device: %s | autocast: %s (use_amp=%s)",
+        device_info(),
+        autocast_dtype,
+        cfg.use_amp,
+    )
     LOGGER.info("Config: %s", json.dumps(cfg.to_dict(), indent=2, ensure_ascii=False))
 
     runs_dir = Path(cfg.runs_dir) / run_name
@@ -132,8 +141,32 @@ def run_training(
     with (runs_dir / "config.json").open("w", encoding="utf-8") as f:
         json.dump(cfg.to_dict(), f, indent=2, ensure_ascii=False)
 
-    LOGGER.info("Building tokenizer (%s)", cfg.model_name)
-    tokenizer = build_tokenizer(cfg.model_name)
+    LOGGER.info("Building tokenizer (%s, use_fast=%s)", cfg.model_name, cfg.use_fast_tokenizer)
+    tokenizer = build_tokenizer(cfg.model_name, use_fast=cfg.use_fast_tokenizer)
+
+    text_steps: list[CleanTextFn] = []
+    if cfg.apply_clean_text:
+        resources = load_resources(cfg.docs_dir)
+        text_steps.append(make_clean_text(resources))
+        LOGGER.info("clean_text enabled (docs_dir=%s)", cfg.docs_dir)
+    else:
+        LOGGER.info("clean_text disabled (apply_clean_text=False)")
+
+    if cfg.apply_pyvi:
+        pyvi_seg = get_pyvi_segmenter()
+        if pyvi_seg is not None:
+            text_steps.append(pyvi_seg)
+            LOGGER.info("pyvi word segmentation enabled (after clean_text)")
+    else:
+        LOGGER.info("pyvi disabled (apply_pyvi=False)")
+
+    if text_steps:
+        def clean_text_fn(text: str) -> str:
+            for step in text_steps:
+                text = step(text)
+            return text
+    else:
+        clean_text_fn = None
 
     LOGGER.info("Building dataloaders from %s", cfg.data_dir)
     train_loader, val_loader, test_loader, pos_weight, _raw = build_dataloaders(
@@ -144,6 +177,7 @@ def run_training(
         eval_batch_size=cfg.eval_batch_size,
         num_workers=cfg.num_workers,
         num_labels=cfg.num_labels,
+        clean_text_fn=clean_text_fn,
     )
     LOGGER.info(
         "Loader sizes -- train: %d batches, val: %d batches, test: %d batches",
@@ -161,22 +195,25 @@ def run_training(
     pos_weight_dev = pos_weight.to(device) if cfg.use_pos_weight else None
     criterion = build_bce_loss(pos_weight_dev)
 
-    no_decay = ("bias", "LayerNorm.weight", "layer_norm.weight")
-    grouped = [
-        {
-            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
-            "weight_decay": cfg.weight_decay,
-        },
-        {
-            "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
-            "weight_decay": 0.0,
-        },
-    ]
-    optimizer = AdamW(grouped, lr=cfg.learning_rate)
+    # Single AdamW group with default weight_decay applied to all parameters,
+    # matching the ViGoEmotions baseline (`AdamW(model.parameters(), lr=5e-5)`).
+    optimizer = AdamW(
+        model.parameters(),
+        lr=cfg.learning_rate,
+        weight_decay=cfg.weight_decay,
+    )
 
     steps_per_epoch = math.ceil(len(train_loader) / max(cfg.grad_accum, 1))
     total_steps = steps_per_epoch * cfg.epochs
-    warmup_steps = max(1, int(total_steps * cfg.warmup_ratio))
+    if cfg.warmup_epochs is not None:
+        # Baseline: warmup_steps == len(train_loader) (≈ 1 epoch of optimizer steps).
+        warmup_steps = max(1, int(round(cfg.warmup_epochs * steps_per_epoch)))
+    else:
+        warmup_steps = max(1, int(total_steps * cfg.warmup_ratio))
+    LOGGER.info(
+        "Scheduler: linear warmup %d / total %d (steps_per_epoch=%d, warmup_epochs=%s, warmup_ratio=%s)",
+        warmup_steps, total_steps, steps_per_epoch, cfg.warmup_epochs, cfg.warmup_ratio,
+    )
     scheduler = get_linear_schedule_with_warmup(optimizer, warmup_steps, total_steps)
 
     use_fp16_scaler = autocast_dtype == torch.float16
@@ -191,6 +228,16 @@ def run_training(
 
     global_step = 0
     train_start = time.time()
+
+    if cfg.apply_clean_text:
+        _docs = Path(cfg.docs_dir)
+        assert _docs.is_dir(), f"docs_dir must be an existing directory: {_docs}"
+        assert (_docs / "patterns.json").is_file(), (
+            f"Missing required preprocessing file: {_docs / 'patterns.json'}"
+        )
+        assert (_docs / "teencode4.txt").is_file(), (
+            f"Missing required preprocessing file: {_docs / 'teencode4.txt'}"
+        )
 
     for epoch in range(1, cfg.epochs + 1):
         model.train()

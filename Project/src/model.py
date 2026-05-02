@@ -39,10 +39,10 @@ class ViSoBertMultiLabel(nn.Module):
         self.hidden_size = hidden_size
 
         self.dropout = nn.Dropout(dropout)
+        # Use nn.Linear's default initialization (Kaiming-uniform for weight,
+        # uniform for bias) to match the ViGoEmotions baseline notebook, which
+        # does not override the classifier head init.
         self.classifier = nn.Linear(hidden_size, num_labels)
-
-        nn.init.normal_(self.classifier.weight, std=0.02)
-        nn.init.zeros_(self.classifier.bias)
 
     def encode(
         self,
@@ -54,7 +54,14 @@ class ViSoBertMultiLabel(nn.Module):
             attention_mask=attention_mask,
             return_dict=True,
         )
-        pooled = outputs.last_hidden_state[:, 0]
+        # Match ViGoEmotions baseline: feed the encoder's pooler_output
+        # (Linear+Tanh on [CLS]) into the classifier head, not last_hidden_state[:, 0].
+        pooled = outputs.pooler_output
+        if pooled is None:
+            raise RuntimeError(
+                f"{self.model_name} did not return a pooler_output. "
+                "Reload the backbone with add_pooling_layer=True or update the head."
+            )
         return pooled
 
     def forward(

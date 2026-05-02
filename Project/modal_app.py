@@ -6,6 +6,10 @@ Usage (local CLI, after data has been uploaded once via scripts/upload_data.py):
         --config-path configs/visobert_baseline.yaml \\
         --run-name visobert-baseline-v1
 
+    Override RNG seed (otherwise YAML seed is used):
+
+        modal run modal_app.py::train ... --seed 42
+
 Optional flags:
     --use-wandb         enable W&B logging. Set WANDB_API_KEY locally and it
                         will be forwarded to the Modal container.
@@ -35,8 +39,16 @@ image = (
     .pip_install_from_requirements(str(ROOT / "requirements.txt"))
     .add_local_dir(str(ROOT / "src"), remote_path="/root/src", copy=True)
     .add_local_dir(str(ROOT / "configs"), remote_path="/root/configs", copy=True)
-    .workdir("/root")
 )
+
+# Optionally ship preprocessing resources (patterns.json, emojis.json,
+# teencode4.txt). Without them clean_text still runs but the pattern /
+# teencode steps become no-ops.
+_DOCS_LOCAL = ROOT / "docs"
+if _DOCS_LOCAL.exists():
+    image = image.add_local_dir(str(_DOCS_LOCAL), remote_path="/root/docs", copy=True)
+
+image = image.workdir("/root")
 
 app = modal.App(APP_NAME, image=image)
 
@@ -63,13 +75,23 @@ _wandb_secret = modal.Secret.from_dict(
     secrets=[_wandb_secret],
     timeout=60 * 60 * 4,
 )
-def train_remote(config_path: str, run_name: str, use_wandb: bool = False) -> dict:
+def train_remote(
+    config_path: str,
+    run_name: str,
+    use_wandb: bool = False,
+    seed: int | None = None,
+) -> dict:
     """Remote training entrypoint. Returns the summary dict written to metrics.json."""
     os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
     from src.train import run_training
 
-    summary = run_training(config_path=config_path, run_name=run_name, use_wandb=use_wandb)
+    summary = run_training(
+        config_path=config_path,
+        run_name=run_name,
+        use_wandb=use_wandb,
+        seed_override=seed,
+    )
     runs_vol.commit()
     return summary
 
@@ -79,11 +101,12 @@ def train(
     config_path: str = "configs/visobert_baseline.yaml",
     run_name: str = "visobert-baseline-v1",
     use_wandb: bool = False,
+    seed: int | None = None,
 ) -> None:
     """Local CLI -> remote A100 training run."""
     remote_config = config_path if config_path.startswith("/") else f"/root/{config_path}"
 
-    print(f"[modal_app] Submitting training run '{run_name}' (use_wandb={use_wandb})")
+    print(f"[modal_app] Submitting training run '{run_name}' (use_wandb={use_wandb}, seed={seed})")
     print(f"[modal_app] Config (remote): {remote_config}")
 
     if use_wandb and not os.environ.get("WANDB_API_KEY"):
@@ -94,6 +117,7 @@ def train(
         config_path=remote_config,
         run_name=run_name,
         use_wandb=use_wandb,
+        seed=seed,
     )
 
     print("[modal_app] Run finished.")

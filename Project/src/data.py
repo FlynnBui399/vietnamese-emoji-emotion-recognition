@@ -9,7 +9,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 
 import numpy as np
 import pandas as pd
@@ -18,6 +18,8 @@ from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
 from .utils import NUM_LABELS, get_logger
+
+CleanTextFn = Callable[[str], str]
 
 LOGGER = get_logger(__name__)
 
@@ -54,13 +56,24 @@ def _to_multi_hot(label_ids: list[int], num_labels: int) -> np.ndarray:
     return vec
 
 
-def load_split(csv_path: str | Path, num_labels: int = NUM_LABELS) -> pd.DataFrame:
-    """Load a CSV split into a DataFrame with `text` (str) and `labels` (np.ndarray)."""
+def load_split(
+    csv_path: str | Path,
+    num_labels: int = NUM_LABELS,
+    clean_text_fn: CleanTextFn | None = None,
+) -> pd.DataFrame:
+    """Load a CSV split into a DataFrame with `text` (str) and `labels` (np.ndarray).
+
+    If `clean_text_fn` is provided, it is applied once to the `text` column at
+    load time (matching how the baseline notebook materialises a cleaned column
+    and then trains on it).
+    """
     df = pd.read_csv(csv_path)
     if "text" not in df.columns or "labels" not in df.columns:
         raise ValueError(f"{csv_path} must contain 'text' and 'labels' columns; got {df.columns.tolist()}")
     df = df.dropna(subset=["text"]).reset_index(drop=True)
     df["text"] = df["text"].astype(str)
+    if clean_text_fn is not None:
+        df["text"] = df["text"].map(clean_text_fn)
     df["labels"] = df["labels"].apply(_parse_label_cell)
     df["multi_hot"] = df["labels"].apply(lambda ids: _to_multi_hot(ids, num_labels))
     LOGGER.info("Loaded %s rows from %s", len(df), csv_path)
@@ -118,8 +131,11 @@ def compute_pos_weight(multi_hot_matrix: np.ndarray, eps: float = 1.0) -> torch.
     return torch.tensor(pos_weight, dtype=torch.float32)
 
 
-def build_tokenizer(model_name: str) -> PreTrainedTokenizerBase:
-    return AutoTokenizer.from_pretrained(model_name, use_fast=True)
+def build_tokenizer(model_name: str, use_fast: bool = False) -> PreTrainedTokenizerBase:
+    """Build the HF tokenizer. Defaults to `use_fast=False` to match the
+    ViGoEmotions baseline (which loads ViSoBERT's slow SentencePiece tokenizer).
+    """
+    return AutoTokenizer.from_pretrained(model_name, use_fast=use_fast)
 
 
 def build_dataloaders(
@@ -130,11 +146,12 @@ def build_dataloaders(
     eval_batch_size: int,
     num_workers: int,
     num_labels: int = NUM_LABELS,
+    clean_text_fn: CleanTextFn | None = None,
 ) -> tuple[DataLoader, DataLoader, DataLoader, torch.Tensor, dict[str, pd.DataFrame]]:
     data_dir = Path(data_dir)
-    train_df = load_split(data_dir / "train.csv", num_labels)
-    val_df = load_split(data_dir / "val.csv", num_labels)
-    test_df = load_split(data_dir / "test.csv", num_labels)
+    train_df = load_split(data_dir / "train.csv", num_labels, clean_text_fn=clean_text_fn)
+    val_df = load_split(data_dir / "val.csv", num_labels, clean_text_fn=clean_text_fn)
+    test_df = load_split(data_dir / "test.csv", num_labels, clean_text_fn=clean_text_fn)
 
     train_ds = ViGoEmotionsDataset(train_df, tokenizer, max_length)
     val_ds = ViGoEmotionsDataset(val_df, tokenizer, max_length)

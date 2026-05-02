@@ -12,3 +12,5 @@ tensorboard>=2.15.0
 pyyaml>=6.0
 tqdm>=4.66.0
 wandb>=0.16.0
+emoji>=2.10.0
+pyvi>=0.1.1
