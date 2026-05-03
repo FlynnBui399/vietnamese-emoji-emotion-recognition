@@ -195,13 +195,7 @@ def run_training(
     pos_weight_dev = pos_weight.to(device) if cfg.use_pos_weight else None
     criterion = build_bce_loss(pos_weight_dev)
 
-    # Single AdamW group with default weight_decay applied to all parameters,
-    # matching the ViGoEmotions baseline (`AdamW(model.parameters(), lr=5e-5)`).
-    optimizer = AdamW(
-        model.parameters(),
-        lr=cfg.learning_rate,
-        weight_decay=cfg.weight_decay,
-    )
+    optimizer = AdamW(model.parameters(), lr=cfg.learning_rate, weight_decay=cfg.weight_decay)
 
     steps_per_epoch = math.ceil(len(train_loader) / max(cfg.grad_accum, 1))
     total_steps = steps_per_epoch * cfg.epochs
