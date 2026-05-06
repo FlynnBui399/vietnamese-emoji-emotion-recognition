@@ -194,6 +194,44 @@ _NEWLINE_PUNCT_RE = re.compile(r"\n([.,!?;:])?")
 _WS_RE = re.compile(r"\s+")
 
 
+def build_preprocessor(
+    *,
+    apply_clean_text: bool,
+    apply_pyvi: bool,
+    docs_dir: str | Path | None,
+) -> Callable[[str], str] | None:
+    """Return a single ``str -> str`` that runs ``clean_text`` then optional pyvi.
+
+    Composes all enabled steps in order so callers pass **one** callable to
+    ``load_split`` / ``build_dataloaders`` — never a list of functions.
+    """
+    steps: list[Callable[[str], str]] = []
+    if apply_clean_text:
+        resources = load_resources(docs_dir)
+        steps.append(make_clean_text(resources))
+        LOGGER.info("clean_text enabled (docs_dir=%s)", docs_dir)
+    else:
+        LOGGER.info("clean_text disabled (apply_clean_text=False)")
+
+    if apply_pyvi:
+        pyvi_seg = get_pyvi_segmenter()
+        if pyvi_seg is not None:
+            steps.append(pyvi_seg)
+            LOGGER.info("pyvi word segmentation enabled (after clean_text)")
+    else:
+        LOGGER.info("pyvi disabled (apply_pyvi=False)")
+
+    if not steps:
+        return None
+
+    def preprocess(text: str) -> str:
+        for fn in steps:
+            text = fn(text)
+        return text
+
+    return preprocess
+
+
 def make_clean_text(resources: Resources) -> Callable[[str], str]:
     """Return a `clean_text(str) -> str` closure bound to the given resources."""
     pattern_dict = resources.pattern_dict
@@ -221,6 +259,7 @@ def make_clean_text(resources: Resources) -> Callable[[str], str]:
 
 __all__ = [
     "Resources",
+    "build_preprocessor",
     "get_pyvi_segmenter",
     "load_resources",
     "make_clean_text",

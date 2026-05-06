@@ -36,9 +36,9 @@ ROOT = Path(__file__).parent
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("git")
-    .pip_install_from_requirements(str(ROOT / "requirements.txt"))
+    .pip_install_from_requirements(str(ROOT / "requirements.txt"), force_build=False)
     .add_local_dir(str(ROOT / "src"), remote_path="/root/src", copy=True)
-    .add_local_dir(str(ROOT / "configs"), remote_path="/root/configs", copy=True)
+    .add_local_dir(str(ROOT / "configs"), remote_path="/root/configs", copy=True) 
 )
 
 # Optionally ship preprocessing resources (patterns.json, emojis.json,
@@ -61,6 +61,7 @@ _wandb_secret = modal.Secret.from_dict(
     {
         "WANDB_API_KEY": os.environ.get("WANDB_API_KEY", ""),
         "WANDB_PROJECT": os.environ.get("WANDB_PROJECT", "vigoemotions"),
+        "HF_TOKEN": os.environ.get("HF_TOKEN", "")
     }
 )
 
@@ -138,6 +139,29 @@ def list_runs() -> list[str]:
     return sorted(os.listdir("/runs")) if os.path.isdir("/runs") else []
 
 
+@app.function(
+    volumes={"/data": data_vol},
+    timeout=300,
+)
+def debug_preprocess() -> None:
+    import pandas as pd
+    from src.config import TrainConfig
+    from src.data import load_split
+    from src.preprocess import build_preprocessor
+
+    cfg = TrainConfig.from_yaml("/root/configs/visobert_baseline.yaml")
+    clean_fn = build_preprocessor(
+        apply_clean_text=cfg.apply_clean_text,
+        apply_pyvi=cfg.apply_pyvi,
+        docs_dir=cfg.docs_dir,
+    )
+    df = load_split("/data/train.csv", clean_text_fn=clean_fn)
+
+    # In 3 samples để xác nhận preprocess đang chạy
+    for i in range(3):
+        print(f"ROW {i}: {df['text'].iloc[i][:150]}")
+
+
 @app.local_entrypoint()
 def runs() -> None:
     """`modal run modal_app.py::runs` to list completed runs on the volume."""
@@ -147,3 +171,12 @@ def runs() -> None:
         return
     for item in items:
         print(item)
+
+
+@app.local_entrypoint()
+def debug() -> None:
+    """`modal run modal_app.py::debug` to verify preprocessing on the remote volume."""
+    print("[modal_app] Running debug_preprocess...")
+    debug_preprocess.remote()
+    print("[modal_app] Done.")
+

@@ -65,7 +65,8 @@ def load_split(
 
     If `clean_text_fn` is provided, it is applied once to the `text` column at
     load time (matching how the baseline notebook materialises a cleaned column
-    and then trains on it).
+    and then trains on it). Must be a single composed callable (see
+    ``preprocess.build_preprocessor``), not a list of functions.
     """
     df = pd.read_csv(csv_path)
     if "text" not in df.columns or "labels" not in df.columns:
@@ -73,7 +74,7 @@ def load_split(
     df = df.dropna(subset=["text"]).reset_index(drop=True)
     df["text"] = df["text"].astype(str)
     if clean_text_fn is not None:
-        df["text"] = df["text"].map(clean_text_fn)
+        df["text"] = df["text"].apply(clean_text_fn)
     df["labels"] = df["labels"].apply(_parse_label_cell)
     df["multi_hot"] = df["labels"].apply(lambda ids: _to_multi_hot(ids, num_labels))
     LOGGER.info("Loaded %s rows from %s", len(df), csv_path)

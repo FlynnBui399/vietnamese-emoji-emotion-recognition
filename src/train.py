@@ -17,11 +17,11 @@ from tqdm import tqdm
 from transformers import get_linear_schedule_with_warmup
 
 from .config import TrainConfig
-from .data import CleanTextFn, build_dataloaders, build_tokenizer
+from .data import build_dataloaders, build_tokenizer
 from .losses import build_bce_loss
 from .metrics import EvalMetrics, compute_metrics
 from .model import ViSoBertMultiLabel
-from .preprocess import get_pyvi_segmenter, load_resources, make_clean_text
+from .preprocess import build_preprocessor
 from .utils import EMOTION_LABELS, NUM_LABELS, device_info, get_logger, set_seed
 
 LOGGER = get_logger(__name__)
@@ -144,29 +144,11 @@ def run_training(
     LOGGER.info("Building tokenizer (%s, use_fast=%s)", cfg.model_name, cfg.use_fast_tokenizer)
     tokenizer = build_tokenizer(cfg.model_name, use_fast=cfg.use_fast_tokenizer)
 
-    text_steps: list[CleanTextFn] = []
-    if cfg.apply_clean_text:
-        resources = load_resources(cfg.docs_dir)
-        text_steps.append(make_clean_text(resources))
-        LOGGER.info("clean_text enabled (docs_dir=%s)", cfg.docs_dir)
-    else:
-        LOGGER.info("clean_text disabled (apply_clean_text=False)")
-
-    if cfg.apply_pyvi:
-        pyvi_seg = get_pyvi_segmenter()
-        if pyvi_seg is not None:
-            text_steps.append(pyvi_seg)
-            LOGGER.info("pyvi word segmentation enabled (after clean_text)")
-    else:
-        LOGGER.info("pyvi disabled (apply_pyvi=False)")
-
-    if text_steps:
-        def clean_text_fn(text: str) -> str:
-            for step in text_steps:
-                text = step(text)
-            return text
-    else:
-        clean_text_fn = None
+    clean_text_fn = build_preprocessor(
+        apply_clean_text=cfg.apply_clean_text,
+        apply_pyvi=cfg.apply_pyvi,
+        docs_dir=cfg.docs_dir,
+    )
 
     LOGGER.info("Building dataloaders from %s", cfg.data_dir)
     train_loader, val_loader, test_loader, pos_weight, _raw = build_dataloaders(
@@ -195,13 +177,7 @@ def run_training(
     pos_weight_dev = pos_weight.to(device) if cfg.use_pos_weight else None
     criterion = build_bce_loss(pos_weight_dev)
 
-    # Single AdamW group with default weight_decay applied to all parameters,
-    # matching the ViGoEmotions baseline (`AdamW(model.parameters(), lr=5e-5)`).
-    optimizer = AdamW(
-        model.parameters(),
-        lr=cfg.learning_rate,
-        weight_decay=cfg.weight_decay,
-    )
+    optimizer = AdamW(model.parameters(), lr=cfg.learning_rate, weight_decay=cfg.weight_decay)
 
     steps_per_epoch = math.ceil(len(train_loader) / max(cfg.grad_accum, 1))
     total_steps = steps_per_epoch * cfg.epochs
