@@ -148,15 +148,15 @@ def normalize_pattern(text: str, pattern_dict: Mapping[str, str]) -> str:
 
 
 def remove_duplicate_chars(text: str) -> str:
-    """Collapse runs of repeated alphabetic chars (e.g. 'ơiiiii' -> 'ơi')."""
-    prev = None
-    out: list[str] = []
-    for ch in text:
-        if ch.isalpha() and prev == ch:
-            continue
-        prev = ch
-        out.append(ch)
-    return "".join(out)
+    """Collapse runs of 3+ identical characters to 2 (baseline: any char, not just alpha).
+
+    Baseline notebook uses: re.sub(r"(.)\\1{2,}", r"\\1\\1", text)
+    Examples:
+        'cuườiii' -> 'cuườii'
+        ':)))))'  -> ':))'
+        '======'  -> '=='
+    """
+    return re.sub(r"(.)\1{2,}", r"\1\1", text)
 
 
 def remove_duplicate_emoji(text: str) -> str:
@@ -248,8 +248,8 @@ def make_clean_text(resources: Resources) -> Callable[[str], str]:
         text = _NEWLINE_NOPUNCT_RE.sub(". ", text)
         # Strip remaining \n adjacent to punctuation.
         text = _NEWLINE_PUNCT_RE.sub(r" \1", text)
-        # Insert spaces around ASCII punctuation.
-        text = _PUNCT_RE.sub(r" \1 ", text)
+        # NOTE: no punct-spacing (_PUNCT_RE) — baseline does NOT add spaces
+        # around punctuation; doing so breaks emoticons like :)) → : ) )
         # Collapse repeated whitespace.
         text = _WS_RE.sub(" ", text).strip()
         return text

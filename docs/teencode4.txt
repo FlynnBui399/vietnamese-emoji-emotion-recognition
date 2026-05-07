@@ -213,6 +213,7 @@ bsĩ	bác sĩ
 vde	vấn đề
 chta	chúng ta
 òy	rồi
+b	bạn
 ltinh	linh tinh
 bome	bỏ mẹ
 ngyeu	người yêu
@@ -432,3 +433,35 @@ zú	vú
 sđt	số điện thoại
 klq	không liên quan
 vkl	vãi cả lồn
+oke	ok
+oce	ok
+oki	ok
+okela	ok
+huhu	buồn
+hehe	haha
+hihi	haha
+haha	haha
+hêhê	haha
+híc	hic
+huc	hic
+uwu	dễ thương
+owo	ngạc nhiên
+omg	ồ trời
+wtf	trời ơi
+lmao	cười lăn
+bruh	ôi thôi
+fr	thật sự
+ngl	thật ra
+gg	tốt lắm
+ez	dễ
+khong	không
+duoc	được
+nguoi	người
+viec	việc
+tinh	tình
+ngay	ngày
+thang	tháng
+nam	năm
+biet	biết
+clgt	cái lồn gì thế
+i	đi
