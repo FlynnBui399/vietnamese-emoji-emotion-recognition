@@ -34,7 +34,7 @@ HF_CACHE_VOLUME_NAME = "hf-cache"
 ROOT = Path(__file__).parent
 
 image = (
-    modal.Image.debian_slim(python_version="3.11")
+    modal.Image.debian_slim(python_version="3.11", force_build=True)
     .apt_install("git")
     .pip_install_from_requirements(str(ROOT / "requirements.txt"), force_build=False)
     .add_local_dir(str(ROOT / "src"), remote_path="/root/src", copy=True)
