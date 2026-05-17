@@ -166,7 +166,7 @@ Key knobs:
 |-------------------|------------------|------------------------------------------------------|
 | `model_name`      | `uitnlp/visobert`| Any HF encoder works (CafeBERT/PhoBERT later).       |
 | `num_labels`      | `28`             | 27 emotions + neutral, per the dataset README.       |
-| `max_length`      | `128`            | ~99% of comments fit.                                |
+| `max_length`      | `200`            | Matches the baseline notebook setting.               |
 | `batch_size`      | `32`             | Fits comfortably in 40GB A100.                       |
 | `epochs`          | `12`             | Paper baseline trains until convergence.             |
 | `learning_rate`   | `5.0e-5`         | Standard BERT fine-tune LR.                          |

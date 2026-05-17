@@ -55,8 +55,8 @@ class ViSoBertMultiLabel(nn.Module):
             return_dict=True,
         )
         # Match ViGoEmotions baseline: feed the encoder's pooler_output
-        # (Linear+Tanh on [CLS]) into the classifier head, not last_hidden_state[:, 0].
-        pooled = outputs.last_hidden_state[:, 0, :]
+        # (Linear+Tanh on [CLS]) into the classifier head.
+        pooled = outputs.pooler_output
         if pooled is None:
             raise RuntimeError(
                 f"{self.model_name} did not return a pooler_output. "

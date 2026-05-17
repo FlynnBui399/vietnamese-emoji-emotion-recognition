@@ -5,7 +5,7 @@ model_name: uitnlp/visobert
 num_labels: 28
 
 # Tokenization
-max_length: 128
+max_length: 200
 use_fast_tokenizer: false  # ← notebook uses use_fast=False for ViSoBERT
 padding_side: right
 # Preprocessing

@@ -95,7 +95,7 @@ class ViGoEmotionsDataset(Dataset):
         self,
         df: pd.DataFrame,
         tokenizer: PreTrainedTokenizerBase,
-        max_length: int = 128,
+        max_length: int = 200,
     ) -> None:
         self.texts: list[str] = df["text"].tolist()
         self.labels: np.ndarray = np.stack(df["multi_hot"].to_list(), axis=0)
