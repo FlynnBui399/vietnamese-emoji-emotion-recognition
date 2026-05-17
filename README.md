@@ -13,6 +13,12 @@ same data / model / training scaffolding.
 - Macro F1 ≈ **61.50%**
 - Weighted F1 ≈ **63.26%**
 
+Protocol details:
+- Decision threshold is fixed at `0.5`.
+- The provided `train.csv`, `val.csv`, and `test.csv` files are used directly.
+- Scenario 1 keeps raw emoji and applies rule-based normalization resources from `docs/`.
+- ViSoBERT uses its own tokenizer directly; PyVi tokenization is disabled.
+
 ---
 
 ## Project layout
@@ -28,7 +34,7 @@ NLP/
 │   ├── data.py                  # CSV parse, 28-class multi-hot, pos_weight, DataLoaders
 │   ├── model.py                 # ViSoBertMultiLabel (backbone + dropout + linear head)
 │   ├── losses.py                # BCEWithLogitsLoss + pos_weight
-│   ├── metrics.py               # macro/weighted/micro F1, per-class F1, Hamming, threshold sweep
+│   ├── metrics.py               # macro/weighted/micro F1, per-class F1, Hamming
 │   ├── train.py                 # training loop: bf16 AMP, eval/epoch, best-ckpt, TB + W&B
 │   └── utils.py                 # seeding, label maps
 ├── scripts/
@@ -142,11 +148,9 @@ Every step (`log_every` controls cadence):
 Every epoch (val + train summary):
 - `train/epoch_loss`
 - `val/loss`, `val/macro_f1`, `val/weighted_f1`, `val/micro_f1`, `val/hamming`
-- `val/macro_f1_tuned`, `val/threshold_tuned` (best global threshold sweep)
 
 After training (loaded best checkpoint, eval on test):
-- `test/loss`, `test/macro_f1`, `test/weighted_f1`, `test/micro_f1`, `test/hamming`,
-  `test/macro_f1_tuned`
+- `test/loss`, `test/macro_f1`, `test/weighted_f1`, `test/micro_f1`, `test/hamming`
 - `test/per_class_f1/{idx}_{emotion_name}` for all 28 labels
 
 Same scalars are logged to W&B if enabled.
@@ -164,10 +168,10 @@ Key knobs:
 | `num_labels`      | `28`             | 27 emotions + neutral, per the dataset README.       |
 | `max_length`      | `128`            | ~99% of comments fit.                                |
 | `batch_size`      | `32`             | Fits comfortably in 40GB A100.                       |
-| `epochs`          | `10`             | Paper baseline trains until convergence.             |
-| `learning_rate`   | `2.0e-5`         | Standard BERT fine-tune LR.                          |
+| `epochs`          | `12`             | Paper baseline trains until convergence.             |
+| `learning_rate`   | `5.0e-5`         | Standard BERT fine-tune LR.                          |
 | `use_pos_weight`  | `true`           | Per-class `pos_weight` for BCE — handles imbalance.  |
-| `threshold`       | `0.5`            | Default decision threshold; tuned threshold also reported. |
+| `threshold`       | `0.5`            | Fixed decision threshold for validation and test metrics.  |
 
 Make a new YAML next to it for ablations later (e.g. `configs/visobert_no_pos_weight.yaml`).
 

@@ -15,22 +15,24 @@ class EvalMetrics:
     hamming: float
     per_class_f1: list[float]
     threshold: float
-    macro_f1_tuned: float = 0.0
-    threshold_tuned: float = 0.5
+    macro_f1_tuned: float | None = None
+    threshold_tuned: float | None = None
     per_class_f1_tuned: list[float] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        return {
+        out = {
             "macro_f1": self.macro_f1,
             "weighted_f1": self.weighted_f1,
             "micro_f1": self.micro_f1,
             "hamming": self.hamming,
             "threshold": self.threshold,
-            "macro_f1_tuned": self.macro_f1_tuned,
-            "threshold_tuned": self.threshold_tuned,
             "per_class_f1": list(map(float, self.per_class_f1)),
-            "per_class_f1_tuned": list(map(float, self.per_class_f1_tuned)),
         }
+        if self.macro_f1_tuned is not None and self.threshold_tuned is not None:
+            out["macro_f1_tuned"] = self.macro_f1_tuned
+            out["threshold_tuned"] = self.threshold_tuned
+            out["per_class_f1_tuned"] = list(map(float, self.per_class_f1_tuned))
+        return out
 
 
 def _binarize(probs: np.ndarray, threshold: float) -> np.ndarray:
@@ -41,9 +43,9 @@ def compute_metrics(
     probs: np.ndarray,
     targets: np.ndarray,
     threshold: float = 0.5,
-    sweep_thresholds: bool = True,
+    sweep_thresholds: bool = False,
 ) -> EvalMetrics:
-    """Compute the metrics required by the ViGoEmotions paper plus a tuned threshold.
+    """Compute the fixed-threshold metrics required by the ViGoEmotions paper.
 
     `probs`: shape (N, C), sigmoid probabilities.
     `targets`: shape (N, C), {0, 1}.

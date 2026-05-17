@@ -8,7 +8,7 @@ max_length: 200
 use_fast_tokenizer: false
 
 apply_clean_text: true
-apply_pyvi: true
+apply_pyvi: false
 docs_dir: /root/docs
 
 batch_size: 32

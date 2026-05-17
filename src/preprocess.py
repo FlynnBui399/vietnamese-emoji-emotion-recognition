@@ -40,10 +40,8 @@ LOGGER = get_logger(__name__)
 def get_pyvi_segmenter() -> Callable[[str], str] | None:
     """Return `pyvi.ViTokenizer.tokenize` if available, else None.
 
-    The baseline notebook applies Vietnamese word segmentation (e.g.
-    "Tôi rất vui" -> "Tôi rất_vui") *after* clean_text and *before* the
-    SentencePiece tokenizer. Returning None lets the caller skip this step
-    cleanly when `pyvi` isn't installed.
+    This helper is kept for non-ViSoBERT ablations. The ViSoBERT baseline should
+    leave `apply_pyvi=False` and rely on the model tokenizer directly.
     """
     try:
         # pyvi unpickles a CRF model; NumPy 2.4+ warns on legacy dtype(align=0) in the blob.
@@ -59,7 +57,7 @@ def get_pyvi_segmenter() -> Callable[[str], str] | None:
     except ImportError:
         LOGGER.warning(
             "pyvi is not installed; Vietnamese word segmentation will be skipped. "
-            "Install it with `pip install pyvi` to fully match the baseline."
+            "Install it with `pip install pyvi` only for ablations that require it."
         )
         return None
     return tokenize

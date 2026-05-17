@@ -42,7 +42,7 @@ def evaluate(
     device: torch.device,
     threshold: float,
     autocast_dtype: torch.dtype | None,
-    sweep_thresholds: bool = True,
+    sweep_thresholds: bool = False,
 ) -> tuple[EvalMetrics, float]:
     model.eval()
     all_probs: list[np.ndarray] = []
@@ -278,14 +278,13 @@ def run_training(
         LOGGER.info("[epoch %d] avg train loss = %.4f", epoch, avg_train_loss)
 
         val_metrics, val_loss = evaluate(
-            model, val_loader, device, cfg.threshold, autocast_dtype, sweep_thresholds=True
+            model, val_loader, device, cfg.threshold, autocast_dtype
         )
         LOGGER.info(
             "[epoch %d] val | loss=%.4f | macroF1=%.4f | weightedF1=%.4f | microF1=%.4f | "
-            "hamming=%.4f | tunedMacroF1=%.4f @ t=%.2f",
+            "hamming=%.4f | threshold=%.2f",
             epoch, val_loss, val_metrics.macro_f1, val_metrics.weighted_f1,
-            val_metrics.micro_f1, val_metrics.hamming,
-            val_metrics.macro_f1_tuned, val_metrics.threshold_tuned,
+            val_metrics.micro_f1, val_metrics.hamming, val_metrics.threshold,
         )
 
         tb_writer.add_scalar("val/loss", val_loss, epoch)
@@ -293,8 +292,6 @@ def run_training(
         tb_writer.add_scalar("val/weighted_f1", val_metrics.weighted_f1, epoch)
         tb_writer.add_scalar("val/micro_f1", val_metrics.micro_f1, epoch)
         tb_writer.add_scalar("val/hamming", val_metrics.hamming, epoch)
-        tb_writer.add_scalar("val/macro_f1_tuned", val_metrics.macro_f1_tuned, epoch)
-        tb_writer.add_scalar("val/threshold_tuned", val_metrics.threshold_tuned, epoch)
         tb_writer.add_scalar("train/epoch_loss", avg_train_loss, epoch)
 
         if wandb_run is not None:
@@ -306,8 +303,6 @@ def run_training(
                     "val/weighted_f1": val_metrics.weighted_f1,
                     "val/micro_f1": val_metrics.micro_f1,
                     "val/hamming": val_metrics.hamming,
-                    "val/macro_f1_tuned": val_metrics.macro_f1_tuned,
-                    "val/threshold_tuned": val_metrics.threshold_tuned,
                     "train/epoch_loss": avg_train_loss,
                 }
             )
@@ -336,14 +331,13 @@ def run_training(
     model.load_state_dict(payload["model_state_dict"])
 
     test_metrics, test_loss = evaluate(
-        model, test_loader, device, cfg.threshold, autocast_dtype, sweep_thresholds=True
+        model, test_loader, device, cfg.threshold, autocast_dtype
     )
     LOGGER.info(
         "[TEST] loss=%.4f | macroF1=%.4f | weightedF1=%.4f | microF1=%.4f | hamming=%.4f | "
-        "tunedMacroF1=%.4f @ t=%.2f",
+        "threshold=%.2f",
         test_loss, test_metrics.macro_f1, test_metrics.weighted_f1,
-        test_metrics.micro_f1, test_metrics.hamming,
-        test_metrics.macro_f1_tuned, test_metrics.threshold_tuned,
+        test_metrics.micro_f1, test_metrics.hamming, test_metrics.threshold,
     )
 
     tb_writer.add_scalar("test/loss", test_loss, best_epoch)
@@ -351,7 +345,6 @@ def run_training(
     tb_writer.add_scalar("test/weighted_f1", test_metrics.weighted_f1, best_epoch)
     tb_writer.add_scalar("test/micro_f1", test_metrics.micro_f1, best_epoch)
     tb_writer.add_scalar("test/hamming", test_metrics.hamming, best_epoch)
-    tb_writer.add_scalar("test/macro_f1_tuned", test_metrics.macro_f1_tuned, best_epoch)
 
     for i, name in enumerate(EMOTION_LABELS):
         tb_writer.add_scalar(f"test/per_class_f1/{i:02d}_{name}", test_metrics.per_class_f1[i], best_epoch)
@@ -369,8 +362,6 @@ def run_training(
                     "test/weighted_f1": test_metrics.weighted_f1,
                     "test/micro_f1": test_metrics.micro_f1,
                     "test/hamming": test_metrics.hamming,
-                    "test/macro_f1_tuned": test_metrics.macro_f1_tuned,
-                    "test/threshold_tuned": test_metrics.threshold_tuned,
                 }
             )
         except Exception as e:  # pragma: no cover

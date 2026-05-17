@@ -41,9 +41,8 @@ image = (
     .add_local_dir(str(ROOT / "configs"), remote_path="/root/configs", copy=True) 
 )
 
-# Optionally ship preprocessing resources (patterns.json, emojis.json,
-# teencode4.txt). Without them clean_text still runs but the pattern /
-# teencode steps become no-ops.
+# Ship preprocessing resources (patterns.json, emojis.json, teencode4.txt).
+# ViSoBERT Scenario 1 keeps raw emoji and does not apply PyVi tokenization.
 _DOCS_LOCAL = ROOT / "docs"
 if _DOCS_LOCAL.exists():
     image = image.add_local_dir(str(_DOCS_LOCAL), remote_path="/root/docs", copy=True)

@@ -213,7 +213,6 @@ bsĩ	bác sĩ
 vde	vấn đề
 chta	chúng ta
 òy	rồi
-b	bạn
 ltinh	linh tinh
 bome	bỏ mẹ
 ngyeu	người yêu
@@ -254,6 +253,7 @@ kih	kinh
 kb	kết bạn
 dthương	dễ thương
 dth	dễ thương
+thíck	thích
 nhìu	nhiều
 ctrình	chương trình
 mìnk	mình
@@ -269,6 +269,7 @@ thui	thôi
 đjên	điên
 bgái	bạn gái
 zới	với
+xink	xinh
 hđộng	hành động
 đhọc	đại học
 yêuc	yêu
@@ -366,13 +367,15 @@ qá	quá
 ntn	như thế nào
 wá	quá
 duma	đụ má
-zô	dô
+zậy	vậy
+zô	vô
 vđ	vãi đái
 vchg	vãi chưởng
 ml	mặt lồn
 sml	sấp mặt lồn
 xl	xin lỗi
 cmn	con mẹ nó
+cute	dễ thương
 cmt	bình luận
 ns	nói
 iu	yêu
@@ -383,6 +386,7 @@ qq	quằn què
 kh	không
 zạ	dạ
 mis	nhớ
+oy	rồi
 h	giờ
 jo	giờ
 clmm	cái lồn mẹ mày
@@ -420,6 +424,7 @@ cafe	cà phê
 biêt	biết
 tđn	thế đéo nào
 bth	bình thường
+vcđ	vãi cả đái
 tgd	thế giới di động
 khg	không
 nhưg	nhưng
@@ -427,41 +432,11 @@ thằg	thằng
 đuợc	được
 hj	hi
 dc	được
+đc	được
 ku	cu
 thým	thím
+zô	dô
 zú	vú
 sđt	số điện thoại
 klq	không liên quan
 vkl	vãi cả lồn
-oke	ok
-oce	ok
-oki	ok
-okela	ok
-huhu	buồn
-hehe	haha
-hihi	haha
-haha	haha
-hêhê	haha
-híc	hic
-huc	hic
-uwu	dễ thương
-owo	ngạc nhiên
-omg	ồ trời
-wtf	trời ơi
-lmao	cười lăn
-bruh	ôi thôi
-fr	thật sự
-ngl	thật ra
-gg	tốt lắm
-ez	dễ
-khong	không
-duoc	được
-nguoi	người
-viec	việc
-tinh	tình
-ngay	ngày
-thang	tháng
-nam	năm
-biet	biết
-clgt	cái lồn gì thế
-i	đi

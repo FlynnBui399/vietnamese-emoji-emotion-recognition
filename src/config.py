@@ -37,7 +37,7 @@ class TrainConfig:
     # Tokenizer / preprocessing.
     use_fast_tokenizer: bool = False
     apply_clean_text: bool = True
-    apply_pyvi: bool = True  # baseline applies pyvi.ViTokenizer.tokenize before SP tokenizer
+    apply_pyvi: bool = False  # ViSoBERT should not use PyVi before its tokenizer.
     docs_dir: str = "docs"
 
     data_dir: str = "/data"
