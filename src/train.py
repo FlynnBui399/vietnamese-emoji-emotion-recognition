@@ -4,12 +4,15 @@ from __future__ import annotations
 import json
 import math
 import os
+import random
 import time
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import torch
+from sklearn.metrics import classification_report
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -22,7 +25,19 @@ from .losses import build_bce_loss
 from .metrics import EvalMetrics, compute_metrics
 from .model import ViSoBertMultiLabel
 from .preprocess import build_preprocessor
-from .utils import EMOTION_LABELS, NUM_LABELS, device_info, get_logger, set_seed
+from .utils import EMOTION_LABELS, NUM_LABELS, device_info, get_logger
+
+
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
+set_seed(42)
 
 LOGGER = get_logger(__name__)
 
@@ -96,6 +111,54 @@ def _save_checkpoint(
     torch.save(payload, path)
 
 
+def _save_classification_report(
+    path: Path,
+    targets: np.ndarray,
+    preds: np.ndarray,
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    report = classification_report(
+        targets,
+        preds,
+        target_names=list(EMOTION_LABELS),
+        zero_division=0,
+        output_dict=True,
+    )
+    df = pd.DataFrame(report).transpose()
+    df.index.name = "class"
+    df.to_csv(path)
+
+
+@torch.no_grad()
+def _predict_probs_and_targets(
+    model: ViSoBertMultiLabel,
+    loader: DataLoader,
+    device: torch.device,
+    autocast_dtype: torch.dtype | None,
+) -> tuple[np.ndarray, np.ndarray]:
+    model.eval()
+    all_probs: list[np.ndarray] = []
+    all_targets: list[np.ndarray] = []
+
+    for batch in loader:
+        input_ids = batch["input_ids"].to(device, non_blocking=True)
+        attention_mask = batch["attention_mask"].to(device, non_blocking=True)
+        labels = batch["labels"].to(device, non_blocking=True)
+
+        if autocast_dtype is not None:
+            with torch.autocast(device_type="cuda", dtype=autocast_dtype):
+                out = model(input_ids=input_ids, attention_mask=attention_mask)
+                logits = out.logits.float()
+        else:
+            out = model(input_ids=input_ids, attention_mask=attention_mask)
+            logits = out.logits
+
+        all_probs.append(torch.sigmoid(logits).cpu().numpy())
+        all_targets.append(labels.cpu().numpy().astype(np.int8))
+
+    return np.concatenate(all_probs, axis=0), np.concatenate(all_targets, axis=0)
+
+
 def _maybe_init_wandb(use_wandb: bool, run_name: str, cfg: TrainConfig) -> Any:
     if not use_wandb:
         return None
@@ -161,6 +224,14 @@ def run_training(
         num_labels=cfg.num_labels,
         clean_text_fn=clean_text_fn,
     )
+    expected_rows = {"train": 16531, "val": 2066, "test": 2067}
+    actual_rows = {name: len(df) for name, df in _raw.items()}
+    if actual_rows != expected_rows:
+        raise ValueError(f"Unexpected split sizes: expected {expected_rows}, got {actual_rows}")
+    LOGGER.info(
+        "Verified direct CSV split sizes -- train: %d, val: %d, test: %d",
+        actual_rows["train"], actual_rows["val"], actual_rows["test"],
+    )
     LOGGER.info(
         "Loader sizes -- train: %d batches, val: %d batches, test: %d batches",
         len(train_loader), len(val_loader), len(test_loader),
@@ -200,6 +271,10 @@ def run_training(
     best_macro = -1.0
     best_epoch = -1
     best_ckpt = runs_dir / "best.pt"
+    requested_ckpt = Path("checkpoints") / "baseline_visobert_seed42.pth"
+    run_requested_ckpt = runs_dir / requested_ckpt
+    requested_report = Path("reports") / "baseline_classification_report.csv"
+    run_requested_report = runs_dir / requested_report
     history: list[dict[str, Any]] = []
 
     global_step = 0
@@ -320,7 +395,15 @@ def run_training(
             best_macro = val_metrics.macro_f1
             best_epoch = epoch
             _save_checkpoint(best_ckpt, model, cfg, epoch, val_metrics)
-            LOGGER.info("[epoch %d] new best macro F1 %.4f -> saved %s", epoch, best_macro, best_ckpt)
+            _save_checkpoint(requested_ckpt, model, cfg, epoch, val_metrics)
+            _save_checkpoint(run_requested_ckpt, model, cfg, epoch, val_metrics)
+            LOGGER.info(
+                "[epoch %d] new best macro F1 %.4f -> saved %s and %s",
+                epoch,
+                best_macro,
+                best_ckpt,
+                requested_ckpt,
+            )
 
     train_secs = time.time() - train_start
     LOGGER.info("Training done in %.1f s. Best epoch=%d (macroF1=%.4f).",
@@ -333,6 +416,10 @@ def run_training(
     test_metrics, test_loss = evaluate(
         model, test_loader, device, cfg.threshold, autocast_dtype
     )
+    test_probs, test_targets = _predict_probs_and_targets(model, test_loader, device, autocast_dtype)
+    test_preds = (test_probs >= cfg.threshold).astype(np.int8)
+    _save_classification_report(requested_report, test_targets, test_preds)
+    _save_classification_report(run_requested_report, test_targets, test_preds)
     LOGGER.info(
         "[TEST] loss=%.4f | macroF1=%.4f | weightedF1=%.4f | microF1=%.4f | hamming=%.4f | "
         "threshold=%.2f",
@@ -379,6 +466,8 @@ def run_training(
         "device": device_info(),
         "label_map": {i: name for i, name in enumerate(EMOTION_LABELS)},
         "num_labels": NUM_LABELS,
+        "checkpoint_path": requested_ckpt.as_posix(),
+        "classification_report_path": requested_report.as_posix(),
     }
     with (runs_dir / "metrics.json").open("w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2, ensure_ascii=False)

@@ -26,7 +26,7 @@ warmup_epochs: 1.0    # ← warmup_steps = len(train_loader) (≈ 1 epoch)
 dropout: 0.2          # paper dùng 0.2
 grad_clip: 1.0
 grad_accum: 1
-seed: 0
+seed: 42
 
 # Loss
 use_pos_weight: true
