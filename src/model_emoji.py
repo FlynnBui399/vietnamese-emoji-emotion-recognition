@@ -96,5 +96,11 @@ class EmojiAwareViSoBERT(nn.Module):
     ) -> EmojiModelOutput:
         h_text = self.encode_text(input_ids=input_ids, attention_mask=attention_mask)
         h_emoji = self.emoji_projection(emoji_vectors.float())
-        logits = self.fusion(torch.cat([h_text, h_emoji], dim=1))
-        return EmojiModelOutput(logits=logits, pooled_text=h_text, pooled_emoji=h_emoji)
+        # Gate: zero out projected emoji for samples with no emoji input.
+        # ~75% of samples have no emoji; without gating, the projection
+        # layers (Linear bias + LayerNorm) turn zero vectors into non-zero
+        # noise that pollutes the fusion for non-emoji samples.
+        has_emoji = (emoji_vectors.abs().sum(dim=-1, keepdim=True) > 0).float()
+        h_emoji_gated = h_emoji * has_emoji
+        logits = self.fusion(torch.cat([h_text, h_emoji_gated], dim=1))
+        return logits
