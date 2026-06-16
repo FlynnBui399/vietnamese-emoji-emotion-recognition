@@ -1,0 +1,50 @@
+# ViSoBERT C3 Taco + Emoji Config
+model_name: uitnlp/visobert
+num_labels: 28
+
+# Tokenization
+max_length: 200
+use_fast_tokenizer: false
+padding_side: right
+
+# Preprocessing
+apply_clean_text: true
+apply_pyvi: false
+docs_dir: docs
+
+# Optimization
+batch_size: 32
+eval_batch_size: 256
+epochs: 12
+learning_rate: 5.0e-5
+weight_decay: 0.01
+warmup_ratio: 0.1
+warmup_epochs: 1.0
+dropout: 0.2
+grad_clip: 1.0
+grad_accum: 1
+seed: 42
+
+# Loss
+use_pos_weight: true
+
+# Inference
+threshold: 0.5
+
+# Misc
+num_workers: 8
+log_every: 50
+use_amp: false
+data_dir: /data
+runs_dir: /runs
+
+# C3 Toggles
+use_taco: true
+lambda_ccl: 0.1
+lambda_ldl: 0.1
+taco_tau: 0.07
+taco_margin: 0.3
+use_emoji_branch: true
+optimize_threshold: false
+use_rdrop: false
+alpha_rdrop: 5.0

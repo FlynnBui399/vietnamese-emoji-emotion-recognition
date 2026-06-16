@@ -16,12 +16,18 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
+import emoji
 
 from .utils import NUM_LABELS, get_logger
 
 CleanTextFn = Callable[[str], str]
 
 LOGGER = get_logger(__name__)
+
+
+def extract_emoji_sequence(text: str) -> list[str]:
+    """Extract all emoji from the text in order."""
+    return [ch for ch in str(text) if ch in emoji.EMOJI_DATA]
 
 
 def _parse_label_cell(cell: object) -> list[int]:
@@ -105,7 +111,7 @@ class ViGoEmotionsDataset(Dataset):
     def __len__(self) -> int:
         return len(self.texts)
 
-    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
+    def __getitem__(self, idx: int) -> dict[str, torch.Tensor | list[str]]:
         enc = self.tokenizer(
             self.texts[idx],
             truncation=True,
@@ -113,10 +119,13 @@ class ViGoEmotionsDataset(Dataset):
             max_length=self.max_length,
             return_tensors="pt",
         )
+        emoji_seq = extract_emoji_sequence(self.texts[idx])
+        padded_emoji_ids = emoji_seq[:30] + [""] * max(0, 30 - len(emoji_seq))
         return {
             "input_ids": enc["input_ids"].squeeze(0),
             "attention_mask": enc["attention_mask"].squeeze(0),
             "labels": torch.from_numpy(self.labels[idx]),
+            "emoji_ids": padded_emoji_ids,
         }
 
 

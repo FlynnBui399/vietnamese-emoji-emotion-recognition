@@ -34,6 +34,17 @@ class TrainConfig:
     # Mixed precision on CUDA (bf16 if supported else fp16). Set false for full fp32 (notebook-like).
     use_amp: bool = True
 
+    # C3 Toggles
+    use_taco: bool = False
+    lambda_ccl: float = 0.1
+    lambda_ldl: float = 0.1
+    taco_tau: float = 0.07
+    taco_margin: float = 0.3
+    use_emoji_branch: bool = False
+    optimize_threshold: bool = False
+    use_rdrop: bool = False
+    alpha_rdrop: float = 5.0
+
     # Tokenizer / preprocessing.
     use_fast_tokenizer: bool = False
     apply_clean_text: bool = True
