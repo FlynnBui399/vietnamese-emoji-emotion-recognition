@@ -26,9 +26,27 @@ class EmojiEncoder(nn.Module):
             for word in e2v.index_to_key:
                 self.emoji_dict[word] = torch.tensor(e2v[word], dtype=torch.float32)
 
-    def forward(self, emoji_ids: list[list[str]]) -> torch.Tensor:
+    def forward(self, emoji_ids: list[list[str]], batch_size: int | None = None, device: torch.device | None = None) -> torch.Tensor:
+        # Transpose from (sequence_len, batch_size) back to (batch_size, sequence_len)
+        # if collated by DataLoader's default collator.
+        if isinstance(emoji_ids, list) and len(emoji_ids) > 0 and isinstance(emoji_ids[0], tuple):
+            emoji_ids = list(zip(*emoji_ids))
+
         # Determine device dynamically from model parameters or fallback
-        device = next(self.parameters()).device if list(self.parameters()) else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if device is None:
+            device = next(self.parameters()).device if list(self.parameters()) else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # Handle DataParallel slicing if running on multiple GPUs
+        if batch_size is not None and device.type == "cuda" and device.index is not None:
+            num_gpus = torch.cuda.device_count()
+            if num_gpus > 1:
+                import math
+                B = len(emoji_ids)
+                chunk_size = int(math.ceil(B / num_gpus))
+                k = device.index
+                start = k * chunk_size
+                emoji_ids = emoji_ids[start : start + batch_size]
+
         batch_vectors = []
         for sample_emojis in emoji_ids:
             sample_vectors = []
@@ -107,7 +125,7 @@ class ViSoBertMultiLabel(nn.Module):
                 device = h_cls.device
                 h_emoji = torch.zeros(h_cls.size(0), self.emoji_encoder.dim, device=device)
             else:
-                h_emoji = self.emoji_encoder(emoji_ids)
+                h_emoji = self.emoji_encoder(emoji_ids, batch_size=h_cls.size(0), device=h_cls.device)
             feat = torch.cat([h_cls, h_emoji], dim=1)
         else:
             feat = h_cls
