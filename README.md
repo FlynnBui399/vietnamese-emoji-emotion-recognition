@@ -1,17 +1,17 @@
-# ViGoEmotions Baseline (Phase 1) — ViSoBERT on Modal A100
+# ViGoEmotions Multi-Label Classification (Phase 1 & Phase 2)
 
-Reproduce the **ViSoBERT multi-label baseline** from
+Reproduce and extend the **ViSoBERT multi-label baseline** and **Emoji-Aware Fusion** models from
 [ViGoEmotions (EACL 2026)](https://aclanthology.org/2026.eacl-long.129.pdf)
-on the local CSV split at `data/vigoemotions/`, training on a Modal A100 GPU.
+on the local CSV split at `data/vigoemotions/`, training on a Modal A100 GPU or Kaggle.
 
-This is **Phase 1** of the research plan in
-[`Kế Hoạch Nghiên Cứu Chi Tiết...md`](Kế%20Hoạch%20Nghiên%20Cứu%20Chi%20Tiết%20%20Emoji-Aware%20Fine-Grained%20Emotion%20Recognition%20Cho%20Tiếng%20Việt.md).
-Phase 2 (Emoji2Vec dual-encoder fusion + TACO contrastive losses) reuses the
-same data / model / training scaffolding.
+This project implements:
+- **Phase 1**: Baseline ViSoBERT with Asymmetric Loss (ASL).
+- **Phase 2**: Emoji2Vec dual-encoder fusion, R-Drop regularization, TACO contrastive losses, and per-class decision threshold optimization.
 
 **Reproduction target** (Scenario 1 = keep raw emoji, paper Table):
-- Macro F1 ≈ **61.50%**
-- Weighted F1 ≈ **63.26%**
+- Baseline Macro F1 ≈ **61.50%**
+- Baseline Weighted F1 ≈ **63.26%**
+- C3 / C3_extended Macro F1 (with optimized thresholds) ≈ **61.25%+**
 
 Protocol details:
 - Decision threshold is fixed at `0.5`.
@@ -172,39 +172,6 @@ Key knobs:
 | `learning_rate`   | `5.0e-5`         | Standard BERT fine-tune LR.                          |
 | `use_pos_weight`  | `true`           | Per-class `pos_weight` for BCE — handles imbalance.  |
 | `threshold`       | `0.5`            | Fixed decision threshold for validation and test metrics.  |
-
-Make a new YAML next to it for ablations later (e.g. `configs/visobert_no_pos_weight.yaml`).
-
----
-
-## Modal volumes used
-
-| Volume name           | Mount path                       | Purpose                                  |
-|-----------------------|----------------------------------|------------------------------------------|
-| `vigoemotions-data`   | `/data`                          | Train/val/test CSVs (uploaded once)      |
-| `vigoemotions-runs`   | `/runs`                          | TB logs + checkpoints + metrics.json     |
-| `hf-cache`            | `/root/.cache/huggingface`       | HF model + tokenizer cache               |
-
----
-
-## Phase 2 hooks (not implemented yet)
-
-These pieces are deliberately structured so Phase 2 just plugs in:
-
-- **Emoji2Vec dual-encoder + intermediate fusion**: subclass
-  `ViSoBertMultiLabel` in [src/model.py](src/model.py); add a second branch and
-  a fusion module before the classifier head.
-- **TACO contrastive losses (CCL + LDL)**: extend [src/losses.py](src/losses.py)
-  with new modules; combine in `src/train.py` via a `loss_weights` config block.
-- **CafeBERT / PhoBERT comparison**: just change `model_name` in a new YAML.
-- **LoRA**: wrap `model.backbone` with `peft.get_peft_model(...)` after
-  `ViSoBertMultiLabel.__init__`; toggle via a `lora` config section.
-
----
-
-## Troubleshooting
-
-- **`AttributeError: ... config has no 'hidden_size'`**: model loaded but config
   uses `dim`. The model file already handles both, but if you swap to a more
   exotic backbone, add another fallback.
 - **`OSError: ... uitnlp/visobert ... gated`**: ViSoBERT is public; if HF rate-
