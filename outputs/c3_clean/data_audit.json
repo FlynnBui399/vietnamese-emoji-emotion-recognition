@@ -1,0 +1,133 @@
+{
+  "duplicate_label_rows": {
+    "test": [
+      {
+        "duplicate_label_ids": [
+          12
+        ],
+        "id": "you002641",
+        "labels": [
+          11,
+          8,
+          12,
+          9,
+          12
+        ],
+        "row_index": 1665
+      }
+    ],
+    "train": [],
+    "validation": []
+  },
+  "fatal": true,
+  "issues": [
+    {
+      "actual": 3943,
+      "code": "raw_positive_assignment_mismatch",
+      "expected": 3942,
+      "split": "test"
+    },
+    {
+      "code": "duplicate_label_ids",
+      "count": 1,
+      "rows": [
+        {
+          "duplicate_label_ids": [
+            12
+          ],
+          "id": "you002641",
+          "labels": [
+            11,
+            8,
+            12,
+            9,
+            12
+          ],
+          "row_index": 1665
+        }
+      ],
+      "split": "test"
+    }
+  ],
+  "num_labels": 28,
+  "raw_files_modified": false,
+  "source_precedence": "raw_csv_and_parsed_target_matrices",
+  "splits": {
+    "test": {
+      "comments": 2067,
+      "duplicate_label_rows": 1,
+      "expected_comments": 2067,
+      "expected_positive_labels": 3942,
+      "labels_per_comment": 1.90711175616836,
+      "raw_label_entries": 3943,
+      "split": "test",
+      "target_matrix_positive_labels": 3942,
+      "target_shape": "2067x28"
+    },
+    "train": {
+      "comments": 16531,
+      "duplicate_label_rows": 0,
+      "expected_comments": 16531,
+      "expected_positive_labels": 31545,
+      "labels_per_comment": 1.908233016756397,
+      "raw_label_entries": 31545,
+      "split": "train",
+      "target_matrix_positive_labels": 31545,
+      "target_shape": "16531x28"
+    },
+    "validation": {
+      "comments": 2066,
+      "duplicate_label_rows": 0,
+      "expected_comments": 2066,
+      "expected_positive_labels": 3958,
+      "labels_per_comment": 1.915779283639884,
+      "raw_label_entries": 3958,
+      "split": "validation",
+      "target_matrix_positive_labels": 3958,
+      "target_shape": "2066x28"
+    }
+  },
+  "status": "failed",
+  "test_per_class_support": [
+    374,
+    98,
+    204,
+    143,
+    80,
+    142,
+    150,
+    86,
+    101,
+    108,
+    60,
+    115,
+    95,
+    85,
+    100,
+    84,
+    98,
+    96,
+    87,
+    107,
+    197,
+    345,
+    86,
+    141,
+    189,
+    343,
+    112,
+    116
+  ],
+  "test_per_class_support_sum": 3942,
+  "totals": {
+    "comments": 20664,
+    "duplicate_label_rows": 1,
+    "expected_comments": 20664,
+    "expected_positive_labels": 39445,
+    "labels_per_comment": 1.9088753387533874,
+    "raw_label_entries": 39446,
+    "split": "all",
+    "target_matrix_positive_labels": 39445,
+    "target_shape": "not_applicable"
+  }
+}

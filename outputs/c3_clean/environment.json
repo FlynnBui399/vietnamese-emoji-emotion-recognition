@@ -1,0 +1,17 @@
+{
+  "audit_runtime": "local Codex bundled Python; training was not attempted",
+  "cuda": null,
+  "dataset_hashes_file": "data_hashes.json",
+  "emoji": null,
+  "gensim": null,
+  "git_commit_sha": "0dc62d44cd624ee032d57cced3546889376976e9",
+  "gpu_models": [],
+  "numpy": "2.3.5",
+  "pandas": "3.0.1",
+  "platform": "Windows",
+  "python": "3.12.13",
+  "pytorch": null,
+  "scikit_learn": null,
+  "transformers": null
+}
+

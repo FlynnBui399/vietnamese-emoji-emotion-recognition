@@ -1,0 +1,157 @@
+project:
+  canonical_system_name: C3 Ensemble
+  technical_artifact_name: ASL_Emoji_CB_3seed_ensemble
+  num_labels: 28
+
+paths:
+  data_candidates:
+    - /kaggle/input/c3-clean-inputs/data/vigoemotions
+    - /kaggle/input/vigoemotions/data/vigoemotions
+    - /kaggle/input/vigoemotions
+    - data/vigoemotions
+  emoji2vec: data/emoji2vec.bin
+  artifact_roots:
+    - outputs
+    - /kaggle/input/vigoemo-artifacts
+    - /kaggle/input/datasets
+  extended_train_candidates:
+    - data/vigoemotions_extended/train.csv
+    - data/vigoemotions_extended/train - extended.csv
+
+model:
+  model_name: uitnlp/visobert
+  num_labels: 28
+  max_length: 128
+  emoji_dim: 300
+  hidden_size: 768
+  dropout: 0.2
+  pooling: masked_mean_non_padding_tokens
+  tokenizer_use_fast: false
+  apply_pyvi: false
+
+preprocessing:
+  version: c3_clean_v1
+  emoji_package_version: 2.15.0
+  emoji_aliases: do_not_convert
+
+training:
+  seeds: [42, 1, 7]
+  batch_size: 32
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  max_epochs: 10
+  early_stopping_patience: 3
+  warmup_epochs: 1
+  schedule: linear_warmup_then_linear_decay
+  optimizer: AdamW
+  gradient_accumulation: 1
+  gradient_clip_norm: 1.0
+  selection_metric: validation_tuned_macro_f1
+
+loss:
+  gamma_negative: 4
+  gamma_positive: 0
+  probability_clip: 0.05
+  effective_number_beta: 0.999
+  class_balance_application: positive_terms_inside_asl
+  sampler: none
+
+thresholds:
+  source_split: validation
+  grid_start: 0.05
+  grid_stop_exclusive: 0.95
+  grid_step: 0.01
+  clip_minimum: 0.15
+  clip_maximum: 0.85
+  minimum_validation_positives: 10
+  low_support_default: 0.5
+
+statistics:
+  bootstrap_iterations: 10000
+  bootstrap_seed: 42
+  resampling_unit: test_comment
+  simultaneous_tests: 28
+  multiplicity_correction: holm_bonferroni
+
+runtime:
+  num_gpus: 1
+  precision: fp32
+  num_workers: 2
+  deterministic_algorithms: true
+  skip_completed_runs: true
+  resume: true
+
+experiments:
+  A0_controlled_text_BCE:
+    text_branch: true
+    emoji_branch: false
+    loss: BCE
+    class_balanced_loss: false
+    emoji_control: zero
+    use_rdrop: false
+  A1_controlled_text_ASL:
+    text_branch: true
+    emoji_branch: false
+    loss: ASL
+    class_balanced_loss: false
+    emoji_control: zero
+    use_rdrop: false
+  A2_controlled_ASL_Emoji:
+    text_branch: true
+    emoji_branch: true
+    loss: ASL
+    class_balanced_loss: false
+    emoji_control: normal
+    use_rdrop: false
+  A3_controlled_ASL_Emoji_CB:
+    text_branch: true
+    emoji_branch: true
+    loss: ASL
+    class_balanced_loss: true
+    class_balance_method: effective_number_positive_loss_reweighting
+    emoji_control: normal
+    use_rdrop: false
+  Emoji-random-control:
+    text_branch: true
+    emoji_branch: true
+    loss: ASL
+    class_balanced_loss: true
+    emoji_control: random
+    use_rdrop: false
+  Emoji-shuffle-control:
+    text_branch: true
+    emoji_branch: true
+    loss: ASL
+    class_balanced_loss: true
+    emoji_control: shuffle
+    use_rdrop: false
+  Emoji-zero-control:
+    text_branch: true
+    emoji_branch: true
+    loss: ASL
+    class_balanced_loss: true
+    emoji_control: zero
+    use_rdrop: false
+  C3-RDrop:
+    text_branch: true
+    emoji_branch: true
+    loss: ASL
+    class_balanced_loss: true
+    emoji_control: normal
+    use_rdrop: true
+    rdrop_alpha: 1.0
+  C3-extended-matched:
+    text_branch: true
+    emoji_branch: true
+    loss: ASL
+    class_balanced_loss: true
+    emoji_control: normal
+    use_rdrop: false
+    training_data: extended
+
+optional_experiments:
+  - Emoji-random-control
+  - Emoji-shuffle-control
+  - Emoji-zero-control
+  - C3-RDrop
+  - C3-extended-matched

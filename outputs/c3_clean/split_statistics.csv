@@ -1,0 +1,5 @@
+split,comments,expected_comments,raw_label_entries,target_matrix_positive_labels,expected_positive_labels,labels_per_comment,duplicate_label_rows,target_shape
+train,16531,16531,31545,31545,31545,1.908233016756397,0,16531x28
+validation,2066,2066,3958,3958,3958,1.915779283639884,0,2066x28
+test,2067,2067,3943,3942,3942,1.90711175616836,1,2067x28
+all,20664,20664,39446,39445,39445,1.9088753387533874,1,not_applicable

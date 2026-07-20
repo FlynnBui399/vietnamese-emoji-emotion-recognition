@@ -1,0 +1,10 @@
+priority,experiment,seed,status,reason
+P0,data_audit,,blocked_data_invariant,"test.csv row 1665 (ID you002641) repeats label 12; raw entries=3943, target-matrix support=3942"
+P0,historical_c3_artifact_reconstruction,,blocked_missing_artifacts,"Three referenced Kaggle probability/checkpoint bundles are not present locally"
+P0,historical_reproduced_baseline,,recomputed_from_classification_report,"Macro-F1 recomputed as mean of 28 exact per-class F1 values"
+P1,C3_seed42,42,not_run,"blocked by P0 data invariant"
+P1,C3_seed1,1,not_run,"blocked by P0 data invariant"
+P1,C3_seed7,7,not_run,"blocked by P0 data invariant"
+P2,controlled_ablations,,not_run,"blocked by P0 data invariant"
+P3,optional_diagnostics,,not_run,"blocked by P0 data invariant"
+

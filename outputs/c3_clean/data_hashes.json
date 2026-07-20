@@ -1,0 +1,20 @@
+{
+  "test": {
+    "bytes": 229138,
+    "id_order_sha256": "e96818d9e3ab134d3c72d1e629c072a9ea0bbe4d86d932427141531df003479a",
+    "path": "data/vigoemotions/test.csv",
+    "sha256": "a82cda5da58b6e2043e3f05ae3971f7078630924c691c71ef4ad6eeecfa30a7f"
+  },
+  "train": {
+    "bytes": 1765636,
+    "id_order_sha256": "242e9ea4bcaffa93e3b3e23bd746b303b9ab39739cd754bd88ef8efd2bc56d95",
+    "path": "data/vigoemotions/train.csv",
+    "sha256": "d8c5302bfbfd42c83fc873aff104918fae62da0bad69768c0b46a23a680a218f"
+  },
+  "validation": {
+    "bytes": 221509,
+    "id_order_sha256": "740bea175b72c7c9e38bc50089065b83dfa72bc55d39cd4b4d06cbd1b720ab08",
+    "path": "data/vigoemotions/val.csv",
+    "sha256": "7a2da63676e4ba2ca4a8c97d61f5d731181083c236591e74a345f124e6d65ff3"
+  }
+}

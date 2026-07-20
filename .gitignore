@@ -44,3 +44,7 @@ log.txt
 output.txt
 VisoBERT.txt
 .agent/
+
+# Contains unredacted social-media text; manual privacy review only.
+outputs/c3_clean/qualitative/qualitative_candidates_private.csv
+outputs/c3_clean/qualitative/per_sample_evaluation_private.csv

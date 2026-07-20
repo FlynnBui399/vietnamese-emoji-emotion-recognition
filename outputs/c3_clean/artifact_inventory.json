@@ -1,0 +1,13 @@
+{
+  "checkpoint_files_found": [],
+  "historical_seed_probability_bundles_found": [],
+  "legacy_report_directory": "outputs/c3-asl_emojicb_original",
+  "notebook_references": [
+    "ASL_Emoji_CB__seed42",
+    "ASL_Emoji_CB_ensemble_seed1",
+    "ASL_Emoji_CB_ensemble_seed7",
+    "/kaggle/working/artifacts/final_ensemble"
+  ],
+  "status": "historical reports and executed notebook outputs only"
+}
+

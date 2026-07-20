@@ -1,0 +1,10 @@
+{
+  "artifact_recomputed_fixed_0_5_macro_f1": null,
+  "artifact_recomputed_tuned_macro_f1": null,
+  "historical_displayed_fixed_0_5_macro_f1_approx": 0.6309,
+  "historical_displayed_tuned_macro_f1": 0.6329413412542984,
+  "independently_reproduced": false,
+  "reason": "Historical seed probability arrays and checkpoints are absent locally; pipeline also stopped on the raw-data duplicate-label invariant.",
+  "status": "not_recomputed"
+}
+

@@ -1,0 +1,10 @@
+{
+  "exact_match": true,
+  "historical_value": 0.6140661767682877,
+  "limitation": "No baseline probability or prediction arrays were present; only Macro-F1 and report-derived values can be reconstructed.",
+  "method": "arithmetic mean of the 28 exact per-class f1-score values",
+  "recomputed_macro_f1": 0.6140661767682877,
+  "source": "outputs/c1-visobert_reproduce/baseline_classification_report.csv",
+  "test_support_sum": 3942
+}
+
