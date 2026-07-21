@@ -1003,8 +1003,10 @@ def _run_training_group(
     audited_splits: Mapping[str, AuditedSplit],
     output_dir: Path,
     dataset_hashes: Mapping[str, Any],
+    seeds: Sequence[int] | None = None,
 ) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
+    selected_seeds = list(seeds or config["training"]["seeds"])
     for name in names:
         run_splits = dict(audited_splits)
         run_hashes = dict(dataset_hashes)
@@ -1016,7 +1018,7 @@ def _run_training_group(
                 "sha256": extended.sha256,
                 "id_order_sha256": extended.id_order_sha256,
             }
-        for seed in config["training"]["seeds"]:
+        for seed in selected_seeds:
             if name == "A3_controlled_ASL_Emoji_CB":
                 seed_dir = output_dir / f"seed{seed}"
             else:
@@ -1048,6 +1050,74 @@ def _run_training_group(
             results.append(result)
             _append_manifest(output_dir, [result])
     return results
+
+
+def _validate_selected_seeds(
+    requested: Sequence[int] | None, configured: Sequence[int]
+) -> list[int]:
+    """Return a stable, validated subset of configured training seeds."""
+    configured_seeds = [int(seed) for seed in configured]
+    if requested is None:
+        return configured_seeds
+    selected = [int(seed) for seed in requested]
+    unknown = sorted(set(selected) - set(configured_seeds))
+    if unknown:
+        raise ValueError(
+            f"Requested seeds {unknown} are not configured; expected a subset of {configured_seeds}"
+        )
+    if len(selected) != len(set(selected)):
+        raise ValueError("Each --seeds value must be specified at most once")
+    return selected
+
+
+def _seed_arrays_ready(seed_dirs: Sequence[Path]) -> bool:
+    """Whether a complete set of arrays and ordering IDs is available for ensembling."""
+    required_names = (
+        "val_probs.npy",
+        "val_targets.npy",
+        "test_probs.npy",
+        "test_targets.npy",
+        "val_ids.json",
+        "test_ids.json",
+    )
+    return all(
+        all((seed_dir / name).is_file() for name in required_names)
+        for seed_dir in seed_dirs
+    )
+
+
+def _record_pending_assembly(
+    output_dir: Path,
+    *,
+    priority: str,
+    experiment: str,
+    seed_dirs: Sequence[Path],
+) -> None:
+    required_names = (
+        "val_probs.npy",
+        "val_targets.npy",
+        "test_probs.npy",
+        "test_targets.npy",
+        "val_ids.json",
+        "test_ids.json",
+    )
+    missing: list[str] = []
+    for seed_dir in seed_dirs:
+        absent = [name for name in required_names if not (seed_dir / name).is_file()]
+        if absent:
+            missing.append(f"{seed_dir.as_posix()} [{', '.join(absent)}]")
+    _append_manifest(
+        output_dir,
+        [
+            {
+                "priority": priority,
+                "experiment": experiment,
+                "seed": "",
+                "status": "awaiting_seed_artifacts",
+                "missing_seed_artifacts": ";".join(missing),
+            }
+        ],
+    )
 
 
 def package_kaggle_artifacts(output_dir: Path) -> Path:
@@ -1098,10 +1168,31 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", default="configs/c3_clean.yaml")
     parser.add_argument("--priority", choices=("P0", "P1", "P2", "P3", "ALL"), default="P0")
     parser.add_argument("--run-experiments", nargs="*", default=None)
+    parser.add_argument(
+        "--seeds",
+        nargs="+",
+        type=int,
+        default=None,
+        help=(
+            "Train only this subset of configured seeds. Useful for independent "
+            "Kaggle seed-worker jobs; ensemble assembly waits for all configured seeds."
+        ),
+    )
+    parser.add_argument(
+        "--assemble-only",
+        action="store_true",
+        help=(
+            "Do not train. Assemble completed seed artifacts into ensembles and fail "
+            "if the required arrays/ordered IDs are not available."
+        ),
+    )
     parser.add_argument("--package", action="store_true")
     args = parser.parse_args(argv)
 
     config, repository_root, output_dir = resolve_config(args.config)
+    selected_seeds = _validate_selected_seeds(args.seeds, config["training"]["seeds"])
+    if args.assemble_only and args.priority not in {"P1", "P2", "ALL"}:
+        parser.error("--assemble-only is valid only for P1, P2, or ALL")
     output_dir.mkdir(parents=True, exist_ok=True)
     _write_readme(output_dir)
     inventory = _inventory_legacy_artifacts(
@@ -1208,19 +1299,33 @@ def main(argv: list[str] | None = None) -> int:
     selected = args.run_experiments
     if args.priority in {"P1", "ALL"}:
         names = selected or ["A3_controlled_ASL_Emoji_CB"]
-        _run_training_group(
-            names,
-            config=config,
-            audited_splits=audited_splits,
-            output_dir=output_dir,
-            dataset_hashes=dataset_hashes,
-        )
+        if not args.assemble_only:
+            _run_training_group(
+                names,
+                config=config,
+                audited_splits=audited_splits,
+                output_dir=output_dir,
+                dataset_hashes=dataset_hashes,
+                seeds=selected_seeds,
+            )
         seed_dirs = [output_dir / f"seed{seed}" for seed in config["training"]["seeds"]]
-        _ensemble_from_seed_dirs(
-            seed_dirs,
-            output_dir / "ensemble",
-            audited_splits["test"].frame["id"].astype(str).tolist(),
-        )
+        if _seed_arrays_ready(seed_dirs):
+            _ensemble_from_seed_dirs(
+                seed_dirs,
+                output_dir / "ensemble",
+                audited_splits["test"].frame["id"].astype(str).tolist(),
+            )
+        else:
+            _record_pending_assembly(
+                output_dir,
+                priority="P1",
+                experiment="C3_ensemble_assembly",
+                seed_dirs=seed_dirs,
+            )
+            if args.assemble_only:
+                raise RuntimeError(
+                    "Cannot assemble C3 Ensemble: attach/import all three seed artifacts first"
+                )
 
     if args.priority in {"P2", "ALL"}:
         names = selected or [
@@ -1229,41 +1334,57 @@ def main(argv: list[str] | None = None) -> int:
             "A2_controlled_ASL_Emoji",
             "A3_controlled_ASL_Emoji_CB",
         ]
-        _run_training_group(
-            names,
-            config=config,
-            audited_splits=audited_splits,
-            output_dir=output_dir,
-            dataset_hashes=dataset_hashes,
-        )
+        if not args.assemble_only:
+            _run_training_group(
+                names,
+                config=config,
+                audited_splits=audited_splits,
+                output_dir=output_dir,
+                dataset_hashes=dataset_hashes,
+                seeds=selected_seeds,
+            )
         stable_ids = audited_splits["test"].frame["id"].astype(str).tolist()
         a0_seed_dirs = [
             output_dir / "experiments" / "A0_controlled_text_BCE" / f"seed{seed}"
             for seed in config["training"]["seeds"]
         ]
         a0_ensemble_dir = output_dir / "experiments" / "A0_controlled_text_BCE" / "ensemble"
-        _ensemble_from_seed_dirs(a0_seed_dirs, a0_ensemble_dir, stable_ids)
         c3_seed_dirs = [output_dir / f"seed{seed}" for seed in config["training"]["seeds"]]
         c3_ensemble_dir = output_dir / "ensemble"
-        _ensemble_from_seed_dirs(c3_seed_dirs, c3_ensemble_dir, stable_ids)
-        run_primary_analyses(
-            output_dir,
-            audited_splits,
-            a0_ensemble_dir=a0_ensemble_dir,
-            c3_ensemble_dir=c3_ensemble_dir,
-            bootstrap_iterations=int(config["statistics"]["bootstrap_iterations"]),
-            bootstrap_seed=int(config["statistics"]["bootstrap_seed"]),
-        )
+        if _seed_arrays_ready(a0_seed_dirs) and _seed_arrays_ready(c3_seed_dirs):
+            _ensemble_from_seed_dirs(a0_seed_dirs, a0_ensemble_dir, stable_ids)
+            _ensemble_from_seed_dirs(c3_seed_dirs, c3_ensemble_dir, stable_ids)
+            run_primary_analyses(
+                output_dir,
+                audited_splits,
+                a0_ensemble_dir=a0_ensemble_dir,
+                c3_ensemble_dir=c3_ensemble_dir,
+                bootstrap_iterations=int(config["statistics"]["bootstrap_iterations"]),
+                bootstrap_seed=int(config["statistics"]["bootstrap_seed"]),
+            )
+        else:
+            _record_pending_assembly(
+                output_dir,
+                priority="P2",
+                experiment="A0_and_C3_ensemble_assembly",
+                seed_dirs=[*a0_seed_dirs, *c3_seed_dirs],
+            )
+            if args.assemble_only:
+                raise RuntimeError(
+                    "Cannot assemble P2 analyses: attach/import all A0 and C3 seed artifacts first"
+                )
 
     if args.priority in {"P3", "ALL"}:
         names = selected or config["optional_experiments"]
-        _run_training_group(
-            names,
-            config=config,
-            audited_splits=audited_splits,
-            output_dir=output_dir,
-            dataset_hashes=dataset_hashes,
-        )
+        if not args.assemble_only:
+            _run_training_group(
+                names,
+                config=config,
+                audited_splits=audited_splits,
+                output_dir=output_dir,
+                dataset_hashes=dataset_hashes,
+                seeds=selected_seeds,
+            )
 
     write_paper_outputs(output_dir)
     if args.package:
