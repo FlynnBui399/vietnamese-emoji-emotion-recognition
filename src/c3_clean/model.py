@@ -109,6 +109,8 @@ def build_model(experiment_name: str, model_config: Mapping[str, Any]) -> nn.Mod
         "Emoji-zero-control",
         "C3-RDrop",
         "C3-extended-matched",
+        "A2_RDrop_03",
+        "A2_RDrop_10",
     }:
         return EmojiAwareViSoBERT(
             **common,
