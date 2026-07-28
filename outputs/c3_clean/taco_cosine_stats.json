@@ -1,0 +1,10 @@
+{
+  "n_positive_pairs": 825125,
+  "mean_dist": 0.8700509205964605,
+  "median_dist": 0.9103153222409963,
+  "std_dist": 0.20745259312997932,
+  "pct_dist_gt_0.3": 98.79581881533102,
+  "pct_dist_gt_0.5": 93.6581730040903,
+  "checkpoint": "/kaggle/input/datasets/nhatphatnguyen/worker-seed-42/c3_clean_artifacts/experiments/A2_controlled_ASL_Emoji/seed42/best_checkpoint.pt",
+  "embedding_layer": "h_text (masked_mean_pool before fusion)"
+}
