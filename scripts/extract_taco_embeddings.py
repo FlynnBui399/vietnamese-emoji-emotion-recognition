@@ -96,9 +96,24 @@ def main():
     print(f"Loading test data from: {test_csv}")
 
     df_test = pd.read_csv(test_csv)
-    label_cols = [c for c in df_test.columns if c not in ('id', 'text')]
-    targets = df_test[label_cols].values.astype(np.float32)
     texts = df_test['text'].tolist()
+    num_labels = 28
+
+    # Parse labels -- could be 28 binary columns or a single 'labels' column with list indices
+    if 'labels' in df_test.columns and len(df_test.columns) <= 4:
+        # Single 'labels' column with format like '[14]' or '[0, 3]'
+        import ast
+        targets = np.zeros((len(df_test), num_labels), dtype=np.float32)
+        for i, raw in enumerate(df_test['labels']):
+            indices = ast.literal_eval(str(raw)) if isinstance(raw, str) else [int(raw)]
+            if isinstance(indices, int):
+                indices = [indices]
+            for idx in indices:
+                if 0 <= idx < num_labels:
+                    targets[i, idx] = 1.0
+    else:
+        label_cols = [c for c in df_test.columns if c not in ('id', 'text')]
+        targets = df_test[label_cols].values.astype(np.float32)
 
     # 4. Tokenize and create dummy emoji vectors (we only care about h_text)
     tokenizer = AutoTokenizer.from_pretrained("uitnlp/visobert", use_fast=False)
