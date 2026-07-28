@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import yaml
 import torch
@@ -7,6 +8,9 @@ import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
 from scipy.spatial.distance import pdist, squareform
+
+# Add repo root to sys.path so 'src' can be imported
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from src.c3_clean.data_audit import load_split
 from src.c3_clean.preprocessing import prepare_text_columns, ImmutablePreprocessor
