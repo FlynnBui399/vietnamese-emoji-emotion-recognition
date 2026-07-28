@@ -55,16 +55,23 @@ def main():
     model = build_model('A2_controlled_ASL_Emoji', cfg['model'])
     
     # Find checkpoint in Kaggle structure
-    ckpt_candidates = [
-        Path('/kaggle/input/worker-seed-42/c3_clean_artifacts/experiments/A2_controlled_ASL_Emoji/seed42/best_checkpoint.pt'),
-        Path('/kaggle/working/c3_clean_artifacts/experiments/A2_controlled_ASL_Emoji/seed42/best_checkpoint.pt'),
-        repo_root / 'outputs/c3_clean/experiments/A2_controlled_ASL_Emoji/seed42/best_checkpoint.pt'
-    ]
     ckpt_path = None
-    for p in ckpt_candidates:
-        if p.exists():
-            ckpt_path = p
-            break
+    if Path('/kaggle/input').exists():
+        print("Searching for best_checkpoint.pt in /kaggle/input...")
+        for p in Path('/kaggle/input').rglob('best_checkpoint.pt'):
+            if 'A2_controlled_ASL_Emoji' in str(p) and 'seed42' in str(p):
+                ckpt_path = p
+                break
+                
+    if not ckpt_path:
+        ckpt_candidates = [
+            Path('/kaggle/working/c3_clean_artifacts/experiments/A2_controlled_ASL_Emoji/seed42/best_checkpoint.pt'),
+            repo_root / 'outputs/c3_clean/experiments/A2_controlled_ASL_Emoji/seed42/best_checkpoint.pt'
+        ]
+        for p in ckpt_candidates:
+            if p.exists():
+                ckpt_path = p
+                break
             
     if not ckpt_path:
         print("ERROR: Checkpoint for A2 seed 42 not found!")
