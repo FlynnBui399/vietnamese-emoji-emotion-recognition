@@ -1,0 +1,22 @@
+{
+  "historical_fixed_threshold_artifact": "outputs\\c3-asl_emojicb_original\\ASL_RDrop_fixed_a1.0_classification_report.csv",
+  "historical_macro_f1_fixed_0_5": 0.6294710852198545,
+  "historical_checkpoint_retained": false,
+  "historical_per_sample_probabilities_retained": false,
+  "reproduced_failure_probability_files": [
+    "outputs\\c3_clean\\predictions\\A2r_EmoViS_RDrop1.0_seed42_test_probs.npy",
+    "outputs\\c3_clean\\predictions\\A2r_EmoViS_RDrop1.0_seed1_test_probs.npy",
+    "outputs\\c3_clean\\predictions\\A2r_EmoViS_RDrop1.0_seed7_test_probs.npy"
+  ],
+  "reproduced_failure_sha256": {
+    "A2r_EmoViS_RDrop1.0_seed42_test_probs.npy": "43dc1dc8513cc5dcde60ad3c02f9d4d145186b97f85cff4f11b88e9b6fa333d9",
+    "A2r_EmoViS_RDrop1.0_seed1_test_probs.npy": "a4191c893b43538e5f1dfabe70fb5d4f05b4b6cc106c234d37ac8d8a47b751ff",
+    "A2r_EmoViS_RDrop1.0_seed7_test_probs.npy": "a5c32ad4a2af161fedb35e06aa89c57974a13569d636db2fdcd856e22788170c"
+  },
+  "reproduced_failure_opt_macro_f1": {
+    "42": 0.2846714505044183,
+    "1": 0.31745977352450944,
+    "7": 0.27946708503455087
+  },
+  "conclusion": "The historical fixed-threshold result is report-only. A valid paired bootstrap against it cannot be computed because its per-sample predictions were not retained."
+}

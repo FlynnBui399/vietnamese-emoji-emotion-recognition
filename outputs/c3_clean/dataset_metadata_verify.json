@@ -1,5 +1,5 @@
 {
-  "test_total_labels": 0,
+  "test_total_labels": 3942,
   "test_n_samples": 2067,
   "source_file": "data/vigoemotions/test.csv",
   "discrepancy_note": "3943 vs 3942 reported in paper"
